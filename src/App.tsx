@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import "./App.css";
 
 function App() {
-  const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
+  // const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<string>("");
   const [hasStarted, setHasStarted] = useState<boolean>(false);
 
