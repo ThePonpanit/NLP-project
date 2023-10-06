@@ -147,3 +147,12 @@ ul {
   list-style-type: disc;
   padding-left: 1rem;
 }
+
+.step::before {
+  content: "· ";
+  color: #000;
+  font-weight: bold;
+  margin-right: 8px;
+  font-size: 24px;
+  vertical-align: middle;
+}

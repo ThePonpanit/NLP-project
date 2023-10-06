@@ -128,11 +128,24 @@ function App() {
       {!hasStarted ? (
         <div className="getting-started">
           <h1>Welcome to Dish Recommendation App</h1>
-          <p>Enter your ingredients and get exciting dish recommendations!</p>
-          <p>Click on "Get Dish Recommendation" to begin.</p>
+
+          <p className="step" style={{ marginTop: "20px", fontSize: "18px" }}>
+            Enter your ingredients. (e.g. "chicken, rice, tomato")
+          </p>
+          <p className="step" style={{ fontSize: "18px" }}>
+            Click on "Get Dish Recommendation" to begin.
+          </p>
+          <p className="step" style={{ fontSize: "18px" }}>
+            We will give you the dish recommendation based on your ingredients.
+          </p>
+          <p className="step" style={{ fontSize: "18px" }}>
+            Enjoy!
+          </p>
         </div>
       ) : isLoading ? (
-        <p>Loading...</p>
+        <p style={{ fontSize: "25px" }}>
+          Whipping up some delicious recommendations... Wait a sec! 🥘
+        </p>
       ) : (
         dishRecommendations.map((dish, index) => (
           <DishCard key={index} dish={dish} delay={index * 500} />
