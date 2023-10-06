@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
+import "./App.css";
 
 function App() {
   const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<string>("");
+  const [hasStarted, setHasStarted] = useState<boolean>(false);
+
   const [dishRecommendations, setDishRecommendations] = useState<
     {
       number: string;
@@ -18,7 +21,9 @@ function App() {
   const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
   const handleSubmit = async () => {
+    setHasStarted(true);
     setIsLoading(true);
+
     try {
       const response = await fetch(OPENAI_ENDPOINT, {
         method: "POST",
@@ -56,7 +61,7 @@ function App() {
       console.log("Response:", assistantMessage);
 
       const dishPattern =
-        /number of the dish:\s*(\d+)[\s\S]+?Name of the dish:\s*([\s\S]+?)\s*Ingredients:\s*([\s\S]+?)\s*Preparation [Mm]ethod:\s*([\s\S]+?)\s*Estimated Calories:\s*([\s\S]+?)(?=number of the dish:|$)/gm;
+        /(?:number of the dish:|dish\d+)\s*(\d+)?[\s\S]+?Name of the dish:\s*([\s\S]+?)\s*Ingredients:\s*([\s\S]+?)\s*Preparation Method:\s*([\s\S]+?)\s*Estimated Calories:\s*([\s\S]+?)(?=(?:number of the dish:|dish\d+|$))/gi;
 
       const matches = [...assistantMessage.matchAll(dishPattern)];
       console.log("Matches:", matches);
@@ -68,6 +73,7 @@ function App() {
         preparation: string;
         calories: string;
       }[] = [];
+
       for (const match of matches) {
         dishes.push({
           number: match[1].trim(),
@@ -81,11 +87,21 @@ function App() {
       console.log("Extracted Dishes:", dishes);
 
       if (dishes.length === 0) {
-        setAssistantMessage(assistantMessage);
-        setDishRecommendations([]);
-      } else {
-        setDishRecommendations(dishes);
+        // Split by double newlines to consider spaces between dishes
+        const splitDishes = assistantMessage.split(/\n\s*\n/);
+
+        for (let splitDish of splitDishes) {
+          dishes.push({
+            number: "",
+            name: "Unknown Dish",
+            ingredients: "",
+            preparation: splitDish,
+            calories: "",
+          });
+        }
       }
+
+      setDishRecommendations(dishes);
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -99,20 +115,28 @@ function App() {
 
   return (
     <div>
-      <input
-        value={ingredients}
-        onChange={(e) => setIngredients(e.target.value)}
-        placeholder="Enter ingredients..."
-      />
-      <button onClick={handleSubmit}>Get Dish Recommendation</button>
-      {isLoading ? (
+      <div className="input-field">
+        <input
+          value={ingredients}
+          onChange={(e) => setIngredients(e.target.value)}
+          placeholder="Enter ingredients..."
+        />
+        <button onClick={handleSubmit} disabled={!ingredients.trim().length}>
+          Get Dish Recommendation
+        </button>
+      </div>
+      {!hasStarted ? (
+        <div className="getting-started">
+          <h1>Welcome to Dish Recommendation App</h1>
+          <p>Enter your ingredients and get exciting dish recommendations!</p>
+          <p>Click on "Get Dish Recommendation" to begin.</p>
+        </div>
+      ) : isLoading ? (
         <p>Loading...</p>
-      ) : dishRecommendations.length === 0 && assistantMessage ? (
-        <p>{assistantMessage}</p>
       ) : (
-        dishRecommendations.map((dish, index) => {
-          return <DishCard key={index} dish={dish} />;
-        })
+        dishRecommendations.map((dish, index) => (
+          <DishCard key={index} dish={dish} delay={index * 500} />
+        ))
       )}
     </div>
   );
@@ -120,6 +144,7 @@ function App() {
 
 function DishCard({
   dish,
+  delay,
 }: {
   dish: {
     number: string;
@@ -129,9 +154,10 @@ function DishCard({
     calories: string;
     imageSrc?: string;
   };
+  delay: number;
 }) {
   const [fetchedImageSrc, setFetchedImageSrc] = useState<string | null>(null);
-  const UNSPLASH_ACCESS_KEY = "LDmyPRW72uIAo9Du6OP-uaXJnyKy6q0f3BFQjJ2wIEE";
+  const UNSPLASH_ACCESS_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY;
 
   useEffect(() => {
     const fetchImage = async () => {
@@ -151,10 +177,11 @@ function DishCard({
   }, [dish.name]);
 
   const preparationSteps = dish.preparation.split(/\n/).filter(Boolean);
+
   return (
-    <div style={cardStyle}>
+    <div className="cardStyle" style={{ animationDelay: `${delay}ms` }}>
       {fetchedImageSrc && (
-        <div style={imageContainerStyle}>
+        <div className="imageContainerStyle">
           <img
             src={fetchedImageSrc}
             alt={dish.name}
@@ -169,6 +196,8 @@ function DishCard({
         </div>
       )}
       <h2>{dish.name}</h2>
+      <h3>Ingredients:</h3>
+      <p>{dish.ingredients}</p>
       <h3>Preparation Method:</h3>
       <ul>
         {preparationSteps.map((step, index) => (
@@ -180,20 +209,5 @@ function DishCard({
     </div>
   );
 }
-
-// Styling for the DishCard component
-const cardStyle = {
-  border: "1px solid #ccc",
-  borderRadius: "8px",
-  padding: "16px",
-  marginBottom: "20px",
-  boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
-};
-
-const imageContainerStyle = {
-  display: "flex",
-  justifyContent: "center",
-  marginBottom: "15px",
-};
 
 export default App;
