@@ -40,7 +40,7 @@ function App() {
       const response = await fetch(`${NUTRITION_API_ENDPOINT}${query}`, {
         method: "GET",
         headers: {
-          "X-Api-Key": "4AU66vUrqocQV3nIsF5H8zwD5V4ZgbkK0hk0VEX4",
+          "X-Api-Key": "xXRAKt1oyYc7DF9loKXZpQ==Pzw7DwvZrdduTxc6",
           "Content-Type": "application/json",
         },
       });
