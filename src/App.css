@@ -156,3 +156,9 @@ ul {
   font-size: 24px;
   vertical-align: middle;
 }
+
+canvas {
+  margin-left: 20%;
+  width: 300px !important;
+  height: 300px !important;
+}

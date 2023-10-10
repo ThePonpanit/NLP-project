@@ -1,112 +1,176 @@
 import { useState, useEffect } from "react";
 import "./App.css";
+import * as tf from "@tensorflow/tfjs";
+import {
+  Chart,
+  DoughnutController,
+  ArcElement,
+  CategoryScale,
+  Title,
+  Tooltip,
+} from "chart.js";
+Chart.register(DoughnutController, ArcElement, CategoryScale, Title, Tooltip);
+
+type DishType = {
+  number: string;
+  name: string;
+  ingredients: string;
+  preparation: string;
+  calories: string;
+  protein_g?: number;
+  fat_total_g?: number;
+  carbohydrates_total_g?: number;
+  imageSrc?: string;
+  normalizedValues?: number[];
+};
 
 function App() {
-  // const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<string>("");
   const [hasStarted, setHasStarted] = useState<boolean>(false);
-
-  const [dishRecommendations, setDishRecommendations] = useState<
-    {
-      number: string;
-      name: string;
-      ingredients: string;
-      preparation: string;
-      calories: string;
-    }[]
-  >([]);
+  const [dishRecommendations, setDishRecommendations] = useState<DishType[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const NUTRITION_API_ENDPOINT =
+    "https://api.api-ninjas.com/v1/nutrition?query=";
+
+  async function fetchNutritionData(query: string) {
+    try {
+      const response = await fetch(`${NUTRITION_API_ENDPOINT}${query}`, {
+        method: "GET",
+        headers: {
+          "X-Api-Key": "1rsw22qqjaOxsaD6WUPU7EjkcJjY8Mhuh4YPvEeB",
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        console.error("Failed to fetch nutrition data");
+        return null;
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching nutrition data:", error);
+      return null;
+    }
+  }
 
   const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
   const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     setHasStarted(true);
     setIsLoading(true);
+    fetchFromGPT(ingredients);
+  };
+
+  const MAX_RETRIES = 3;
+
+  const fetchFromGPT = async (ingredients: string, retries = 0) => {
+    if (retries >= MAX_RETRIES) {
+      console.error("Max retries reached. Unable to fetch matching dishes.");
+      setIsLoading(false);
+      return;
+    }
+
+    const response = await fetch(OPENAI_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: `You are a helpful cook assistant and be my Private Chef. 
+                      I will tell you the ingredients and I want you the show me the menu that can be made with those ingredients and show me the estimated calories. 
+                      I will give you the answer outline. Please follow the answer outline to ease regex matching.`,
+          },
+          {
+            role: "user",
+            content: `What dishes can I make with ${ingredients}?
+                      Please list them in a structured manner with the dish name, preparation method, estimated calories.
+                      Only give me 3 dishes.
+                      And this is the answer outline:
+                      Number of the dish:
+                      Name of the dish:
+                      Ingredients:
+                      Preparation Method: 
+                      Estimated Calories:`,
+          },
+        ],
+      }),
+    });
+
+    const data = await response.json();
+    const assistantMessage = data.choices[0].message.content;
+
+    const dishPattern =
+      /(?:number of the dish:|dish\d+)\s*(\d+)?[\s\S]+?Name of the dish:\s*([\s\S]+?)\s*Ingredients:\s*([\s\S]+?)\s*Preparation Method:\s*([\s\S]+?)\s*Estimated Calories:\s*([\s\S]+?)(?=(?:number of the dish:|dish\d+|$))/gi;
+
+    const matches = [...assistantMessage.matchAll(dishPattern)];
+    console.log("Matches:", matches);
+    let dishes: DishType[] = [];
 
     try {
-      const response = await fetch(OPENAI_ENDPOINT, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: `You are a helpful cook assistant and be my Private Chef. 
-                I will tell you the ingredients and I want you the show me the menu that can be made with those ingredients and show me the estimated calories. 
-                I will give you the answer outline. plesae follow the answer outline to easy for regex match.`,
-            },
-            {
-              role: "user",
-              content: `What dishes can I make with ${ingredients}?
-              Please list them in a structured manner with the dish name, preparation method, estimated calories.
-              Only give me 3 dishes.
-              and this is the answer Outline.
-              number of the dish:
-              Name of the dish:
-              Ingredients:
-              Preparation Method: 
-              Estimated Calories:`,
-            },
-          ],
-        }),
-      });
-
-      const data = await response.json();
-      const assistantMessage = data.choices[0].message.content;
-      console.log("Response:", assistantMessage);
-
-      const dishPattern =
-        /(?:number of the dish:|dish\d+)\s*(\d+)?[\s\S]+?Name of the dish:\s*([\s\S]+?)\s*Ingredients:\s*([\s\S]+?)\s*Preparation Method:\s*([\s\S]+?)\s*Estimated Calories:\s*([\s\S]+?)(?=(?:number of the dish:|dish\d+|$))/gi;
-
-      const matches = [...assistantMessage.matchAll(dishPattern)];
-      console.log("Matches:", matches);
-
-      let dishes: {
-        number: string;
-        name: string;
-        ingredients: string;
-        preparation: string;
-        calories: string;
-      }[] = [];
-
       for (const match of matches) {
         dishes.push({
-          number: match[1].trim(),
-          name: match[2].trim(),
-          ingredients: match[3].trim(),
-          preparation: match[4].trim(),
-          calories: match[5].trim(),
+          number: match[1]?.trim(),
+          name: match[2]?.trim(),
+          ingredients: match[3]?.trim(),
+          preparation: match[4]?.trim(),
+          calories: match[5]?.trim(),
         });
       }
-
-      console.log("Extracted Dishes:", dishes);
-
-      if (dishes.length === 0) {
-        // Split by double newlines to consider spaces between dishes
-        const splitDishes = assistantMessage.split(/\n\s*\n/);
-
-        for (let splitDish of splitDishes) {
-          dishes.push({
-            number: "",
-            name: "Unknown Dish",
-            ingredients: "",
-            preparation: splitDish,
-            calories: "",
-          });
-        }
-      }
-
-      setDishRecommendations(dishes);
     } catch (error) {
-      console.error("Error:", error);
-    } finally {
+      console.error("Error processing the matches:", error);
+      await fetchFromGPT(ingredients, retries + 1);
+      return;
+    }
+
+    console.log("Extracted Dishes:", dishes);
+
+    if (dishes.length === 0) {
+      console.log("No dishes matched the pattern. Retrying...");
+      await fetchFromGPT(ingredients, retries + 1);
+    } else {
+      setDishRecommendations(dishes);
       setIsLoading(false);
     }
+
+    // Fetch nutrition data for each dish recommendation
+    const updatedDishes = await Promise.all(
+      dishes.map(async (dish) => {
+        const ingredientsList = dish.ingredients.split(",").join(" and "); // Convert comma-separated ingredients to "and" separated.
+        const nutritionData = await fetchNutritionData(ingredientsList);
+        console.log("Nutrition Data:", nutritionData);
+
+        if (nutritionData && nutritionData.length > 0) {
+          const nutritionTensor = tf.tensor([
+            nutritionData[0].calories,
+            nutritionData[0].protein_g,
+            nutritionData[0].fat_total_g,
+            nutritionData[0].carbohydrates_total_g,
+            // ... other nutritional values ...
+          ]);
+
+          const sum = nutritionTensor.sum();
+          const normalizedTensor = nutritionTensor.div(sum);
+          dish.normalizedValues = (await normalizedTensor.array()) as number[];
+
+          console.log("Normalized Values:", dish.normalizedValues);
+        }
+
+        return dish;
+      })
+    );
+
+    setDishRecommendations(updatedDishes);
   };
 
   useEffect(() => {
@@ -154,21 +218,12 @@ function App() {
     </div>
   );
 }
-
-function DishCard({
-  dish,
-  delay,
-}: {
-  dish: {
-    number: string;
-    name: string;
-    ingredients: string;
-    preparation: string;
-    calories: string;
-    imageSrc?: string;
-  };
+type DishCardProps = {
+  dish: DishType;
   delay: number;
-}) {
+};
+
+function DishCard({ dish, delay }: DishCardProps) {
   const [fetchedImageSrc, setFetchedImageSrc] = useState<string | null>(null);
   const UNSPLASH_ACCESS_KEY = import.meta.env.VITE_UNSPLASH_ACCESS_KEY;
 
@@ -188,6 +243,58 @@ function DishCard({
     };
     fetchImage();
   }, [dish.name]);
+
+  useEffect(() => {
+    const labels = ["Calories", "Protein", "Fat", "Carbs"];
+
+    const ctx = (
+      document.getElementById(`chart-${dish.number}`) as HTMLCanvasElement
+    )?.getContext("2d");
+
+    if (!ctx) {
+      console.warn("Canvas context not available. Skipping chart generation.");
+      return;
+    }
+
+    const dataToDisplay = dish.normalizedValues || [
+      // Use normalized values if available
+      parseFloat(dish.calories),
+      dish.protein_g || 0,
+      dish.fat_total_g || 0,
+      dish.carbohydrates_total_g || 0,
+    ];
+
+    console.log("Data for Chart:", dataToDisplay);
+
+    const chart = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            data: dataToDisplay,
+            backgroundColor: ["#FF9999", "#66B2FF", "#99E699", "#FFCC66"],
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: "Nutritional Breakdown",
+          },
+          legend: {
+            display: true, // this will show the legend
+            position: "right", // position of the legend (can be 'top', 'left', 'bottom', 'right')
+          },
+        },
+      },
+    });
+
+    // Cleanup the chart when component is unmounted
+    return () => chart.destroy();
+  }, [dish]);
 
   const preparationSteps = dish.preparation.split(/\n/).filter(Boolean);
 
@@ -219,6 +326,14 @@ function DishCard({
       </ul>
       <h3>Estimated Calories:</h3>
       <p>{dish.calories}</p>
+      <div>
+        <canvas
+          id={`chart-${dish.number}`}
+          key={dish.normalizedValues?.join("-")}
+          // width="150"
+          // height="150"
+        ></canvas>
+      </div>
     </div>
   );
 }
