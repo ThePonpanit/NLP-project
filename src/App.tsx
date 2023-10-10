@@ -39,15 +39,18 @@ function App() {
     try {
       const response = await fetch(`${NUTRITION_API_ENDPOINT}${query}`, {
         method: "GET",
+        mode: "no-cors",
+        cache: "no-cache",
+        credentials: "same-origin",
         headers: {
           "X-Api-Key": "xXRAKt1oyYc7DF9loKXZpQ==Pzw7DwvZrdduTxc6",
           "Content-Type": "application/json",
         },
       });
 
-      if (!response.ok) {
-        console.error("Failed to fetch nutrition data");
-        return null;
+      if (response.type === "opaque") {
+        console.warn("Request sent using 'no-cors', unable to read the data.");
+        return null; // You can't process or handle the data here because it's opaque.
       }
 
       const data = await response.json();
