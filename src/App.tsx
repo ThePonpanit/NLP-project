@@ -24,6 +24,7 @@ type DishType = {
   carbohydrates_total_g?: number;
   imageSrc?: string;
   normalizedValues?: number[];
+  isLoadingNutrition?: boolean;
 };
 
 function App() {
@@ -159,19 +160,25 @@ function App() {
       console.log("No dishes matched the pattern. Retrying...");
       await fetchFromGPT(ingredients, retries + 1);
     } else {
+      dishes.forEach((dish) => (dish.isLoadingNutrition = true));
       setDishRecommendations(dishes);
       setIsLoading(false);
+    }
+
+    function cleanIngredients(ingredients: string): string {
+      return ingredients
+        .split("-") // Split by the dash
+        .map((ing) => ing.trim()) // Trim each ingredient
+        .filter((ing) => !ing.toLowerCase().includes("(to taste)")) // Remove ingredients that include "(to taste)"
+        .join(","); // Join the cleaned ingredients with commas
     }
 
     // Fetch nutrition data for each dish recommendation
     const updatedDishes = await Promise.all(
       dishes.map(async (dish) => {
-        const cleanedIngredients = ingredients
-          .split(",")
-          .map((ing) => ing.trim())
-          .join(" and ");
+        const cleanedIngredients = cleanIngredients(dish.ingredients); // Use the cleaned ingredients from the GPT-3 response
 
-        console.log("Cleaned Ingredients:", cleanedIngredients);
+        console.log("Cleaned Ingredients from GPT-3:", cleanedIngredients);
         const nutritionData = await fetchWithRetriesNutrition(
           cleanedIngredients
         );
