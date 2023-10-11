@@ -34,6 +34,7 @@ function App() {
     []
   );
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const nutritionDataCache: Record<string, any> = {};
 
   async function retryWithBackoff(
     fn: Function,
@@ -174,38 +175,45 @@ function App() {
     }
 
     // Fetch nutrition data for each dish recommendation
-    const updatedDishes = await Promise.all(
-      dishes.map(async (dish) => {
-        const cleanedIngredients = cleanIngredients(dish.ingredients); // Use the cleaned ingredients from the GPT-3 response
+    dishes.forEach(async (dish) => {
+      const cleanedIngredients = cleanIngredients(dish.ingredients);
+      console.log("Cleaned Ingredients from GPT-3:", cleanedIngredients);
 
-        console.log("Cleaned Ingredients from GPT-3:", cleanedIngredients);
-        const nutritionData = await fetchWithRetriesNutrition(
-          cleanedIngredients
-        );
+      let nutritionData;
+      if (nutritionDataCache[cleanedIngredients]) {
+        nutritionData = nutritionDataCache[cleanedIngredients];
+      } else {
+        nutritionData = await fetchWithRetriesNutrition(cleanedIngredients);
+        nutritionDataCache[cleanedIngredients] = nutritionData; // Cache the fetched data
+      }
 
-        console.log("Nutrition Data:", nutritionData);
+      console.log("Nutrition Data:", nutritionData);
 
-        if (nutritionData && nutritionData.length > 0) {
-          const nutritionTensor = tf.tensor([
-            nutritionData[0].calories,
-            nutritionData[0].protein_g,
-            nutritionData[0].fat_total_g,
-            nutritionData[0].carbohydrates_total_g,
-            // ... other nutritional values ...
-          ]);
+      if (nutritionData && nutritionData.length > 0) {
+        const nutritionTensor = tf.tensor([
+          nutritionData[0].calories,
+          nutritionData[0].protein_g,
+          nutritionData[0].fat_total_g,
+          nutritionData[0].carbohydrates_total_g,
+          // ... other nutritional values ...
+        ]);
 
-          const sum = nutritionTensor.sum();
-          const normalizedTensor = nutritionTensor.div(sum);
-          dish.normalizedValues = (await normalizedTensor.array()) as number[];
+        const sum = nutritionTensor.sum();
+        const normalizedTensor = nutritionTensor.div(sum);
+        dish.normalizedValues = (await normalizedTensor.array()) as number[];
 
-          console.log("Normalized Values:", dish.normalizedValues);
-        }
+        console.log("Normalized Values:", dish.normalizedValues);
+      }
 
-        return dish;
-      })
-    );
+      dish.isLoadingNutrition = false;
 
-    setDishRecommendations(updatedDishes);
+      // Trigger a re-render by updating the dishRecommendations state.
+      setDishRecommendations((prevDishes) =>
+        prevDishes.map((prevDish) =>
+          prevDish.number === dish.number ? dish : prevDish
+        )
+      );
+    });
   };
 
   useEffect(() => {
