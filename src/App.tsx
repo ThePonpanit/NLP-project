@@ -34,9 +34,9 @@ function App() {
   );
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const NUTRITION_API_ENDPOINT =
-    "https://corsproxy.io/?" +
-    encodeURIComponent("https://api.api-ninjas.com/v1/nutrition?query=");
+  const NUTRITION_API_ENDPOINT = `https://flourishing-bunny-c4460c.netlify.app/.netlify/functions/cors-proxy?url=${encodeURIComponent(
+    "https://api.api-ninjas.com/v1/nutrition?query="
+  )}`;
 
   async function fetchNutritionData(query: string) {
     try {
