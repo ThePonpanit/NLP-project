@@ -35,7 +35,8 @@ function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const NUTRITION_API_ENDPOINT =
-    "https://api.api-ninjas.com/v1/nutrition?query=";
+    "https://corsproxy.io/?" +
+    encodeURIComponent("https://api.api-ninjas.com/v1/nutrition?query=");
 
   async function fetchNutritionData(query: string) {
     try {
@@ -63,7 +64,8 @@ function App() {
   const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
   const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
-  const handleSubmit = () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault(); // prevent default form submission
     setHasStarted(true);
     setIsLoading(true);
     fetchFromGPT(ingredients);
@@ -181,16 +183,16 @@ function App() {
 
   return (
     <div>
-      <div className="input-field">
+      <form className="input-field" onSubmit={handleSubmit}>
         <input
           value={ingredients}
           onChange={(e) => setIngredients(e.target.value)}
           placeholder="Enter ingredients..."
         />
-        <button onClick={handleSubmit} disabled={!ingredients.trim().length}>
+        <button type="submit" disabled={!ingredients.trim().length}>
           Get Dish Recommendation
         </button>
-      </div>
+      </form>
       {!hasStarted ? (
         <div className="getting-started">
           <h1>Welcome to Dish Recommendation App</h1>
