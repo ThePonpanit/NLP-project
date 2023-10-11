@@ -30,6 +30,13 @@ export function DishCard({ dish, delay }: DishCardProps) {
 
   function NutritionChart({ data, dishNumber }: NutritionChartProps) {
     const chartRef = useRef<Chart | null>(null);
+    const percentages = data.map((value) => (value * 100).toFixed(2) + "%"); // Convert normalized values to percentages
+    const labels = ["Calories", "Protein", "Fat", "Carbs"];
+    const labeledPercentages = labels.map(
+      (label, idx) => `${label}: ${percentages[idx]}`
+    );
+
+    console.log("Percentages:", percentages);
 
     useEffect(() => {
       // Destroy the previous instance of the chart, if it exists
@@ -47,14 +54,14 @@ export function DishCard({ dish, delay }: DishCardProps) {
         );
         return;
       }
-      // chartRef.current = new Chart(ctx, {...}) as Chart;
+
       chartRef.current = new Chart(ctx, {
         type: "doughnut",
         data: {
           labels: ["Calories", "Protein", "Fat", "Carbs"],
           datasets: [
             {
-              data: data,
+              data: data.map((value) => parseFloat((value * 100).toFixed(2))), // Convert the percentages back to float values for the chart
               backgroundColor: ["#FF9999", "#66B2FF", "#99E699", "#FFCC66"],
             },
           ],
@@ -64,7 +71,11 @@ export function DishCard({ dish, delay }: DishCardProps) {
           plugins: {
             title: {
               display: true,
-              text: "Nutritional Breakdown",
+              text:
+                "Nutritional Breakdown (" + labeledPercentages.join(", ") + ")",
+              font: {
+                size: 15, // Adjust this to your desired size
+              },
             },
             legend: {
               display: true,
@@ -95,8 +106,8 @@ export function DishCard({ dish, delay }: DishCardProps) {
             src={fetchedImageSrc}
             alt={dish.name}
             style={{
-              width: "350px",
-              height: "300px",
+              width: "450px",
+              height: "400px",
               objectFit: "cover",
               boxShadow: "0px 4px 8px rgba(0, 0, 0, 0.2)",
               borderRadius: "10px",
