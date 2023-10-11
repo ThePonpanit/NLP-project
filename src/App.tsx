@@ -34,32 +34,48 @@ function App() {
   );
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const NUTRITION_API_ENDPOINT = `https://flourishing-bunny-c4460c.netlify.app/.netlify/functions/cors-proxy?url=${encodeURIComponent(
-    "https://api.api-ninjas.com/v1/nutrition?query="
-  )}`;
-
-  async function fetchNutritionData(query: string) {
-    try {
-      const response = await fetch(`${NUTRITION_API_ENDPOINT}${query}`, {
-        method: "GET",
-        headers: {
-          "X-Api-Key": "xXRAKt1oyYc7DF9loKXZpQ==Pzw7DwvZrdduTxc6",
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        console.error("Failed to fetch nutrition data");
-        return null;
+  async function retryWithBackoff(
+    fn: Function,
+    maxRetries: number = 3,
+    delayMs: number = 1000
+  ) {
+    for (let i = 0; i <= maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (i === maxRetries) {
+          throw error;
+        }
+        await new Promise((res) => setTimeout(res, delayMs));
+        delayMs *= 2; // Exponential back-off
       }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Error fetching nutrition data:", error);
-      return null;
     }
   }
+
+  const NUTRITION_API_ENDPOINT =
+    "https://corsproxy.io/?" +
+    encodeURIComponent("https://api.api-ninjas.com/v1/nutrition?query=");
+
+  async function fetchNutritionData(query: string) {
+    const response = await fetch(`${NUTRITION_API_ENDPOINT}${query}`, {
+      method: "GET",
+      headers: {
+        "X-Api-Key": "xXRAKt1oyYc7DF9loKXZpQ==Pzw7DwvZrdduTxc6",
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch nutrition data");
+    }
+
+    const data = await response.json();
+    return data;
+  }
+
+  const fetchWithRetriesNutrition = (query: string) => {
+    return retryWithBackoff(() => fetchNutritionData(query));
+  };
 
   const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
   const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
@@ -150,8 +166,16 @@ function App() {
     // Fetch nutrition data for each dish recommendation
     const updatedDishes = await Promise.all(
       dishes.map(async (dish) => {
-        const ingredientsList = dish.ingredients.split(",").join(" and "); // Convert comma-separated ingredients to "and" separated.
-        const nutritionData = await fetchNutritionData(ingredientsList);
+        const cleanedIngredients = ingredients
+          .split(",")
+          .map((ing) => ing.trim())
+          .join(" and ");
+
+        console.log("Cleaned Ingredients:", cleanedIngredients);
+        const nutritionData = await fetchWithRetriesNutrition(
+          cleanedIngredients
+        );
+
         console.log("Nutrition Data:", nutritionData);
 
         if (nutritionData && nutritionData.length > 0) {
