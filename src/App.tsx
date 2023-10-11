@@ -58,36 +58,6 @@ function App() {
     }
   }
 
-  ////////////////// test code ///////////////////
-  const query = "1lb brisket and fries";
-  const NUTRITION_API_ENDPOINT_test = `https://api.api-ninjas.com/v1/nutrition?query=${query}`;
-
-  async function fetchNutritionData_test() {
-    try {
-      const response = await fetch(NUTRITION_API_ENDPOINT_test, {
-        method: "GET",
-        headers: {
-          "X-Api-Key": "xXRAKt1oyYc7DF9loKXZpQ==Pzw7DwvZrdduTxc6",
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-
-      const data = await response.json();
-      console.log(data);
-    } catch (error: any) {
-      console.error("Fetch error: ", error.message);
-    }
-  }
-
-  fetchNutritionData_test();
-  console.log("fetchNutritionData_test() called", NUTRITION_API_ENDPOINT_test);
-
-  ///////////////// end test code /////////////////
-
   const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
   const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
