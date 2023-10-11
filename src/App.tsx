@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
 import "./App.css";
 import * as tf from "@tensorflow/tfjs";
 import {
@@ -244,57 +245,68 @@ function DishCard({ dish, delay }: DishCardProps) {
     fetchImage();
   }, [dish.name]);
 
-  useEffect(() => {
-    const labels = ["Calories", "Protein", "Fat", "Carbs"];
+  type NutritionChartProps = {
+    data: number[];
+    dishNumber: string;
+  };
 
-    const ctx = (
-      document.getElementById(`chart-${dish.number}`) as HTMLCanvasElement
-    )?.getContext("2d");
+  function NutritionChart({ data, dishNumber }: NutritionChartProps) {
+    const chartRef = useRef<Chart | null>(null);
 
-    if (!ctx) {
-      console.warn("Canvas context not available. Skipping chart generation.");
-      return;
-    }
+    useEffect(() => {
+      // Destroy the previous instance of the chart, if it exists
+      if (chartRef.current) {
+        chartRef.current.destroy();
+      }
 
-    const dataToDisplay = dish.normalizedValues || [
-      // Use normalized values if available
-      parseFloat(dish.calories),
-      dish.protein_g || 0,
-      dish.fat_total_g || 0,
-      dish.carbohydrates_total_g || 0,
-    ];
+      const ctx = (
+        document.getElementById(`chart-${dishNumber}`) as HTMLCanvasElement
+      )?.getContext("2d");
 
-    console.log("Data for Chart:", dataToDisplay);
+      if (!ctx) {
+        console.warn(
+          "Canvas context not available. Skipping chart generation."
+        );
+        return;
+      }
+      // chartRef.current = new Chart(ctx, {...}) as Chart;
 
-    const chart = new Chart(ctx, {
-      type: "doughnut",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            data: dataToDisplay,
-            backgroundColor: ["#FF9999", "#66B2FF", "#99E699", "#FFCC66"],
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          title: {
-            display: true,
-            text: "Nutritional Breakdown",
-          },
-          legend: {
-            display: true, // this will show the legend
-            position: "right", // position of the legend (can be 'top', 'left', 'bottom', 'right')
+      chartRef.current = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Calories", "Protein", "Fat", "Carbs"],
+          datasets: [
+            {
+              data: data,
+              backgroundColor: ["#FF9999", "#66B2FF", "#99E699", "#FFCC66"],
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: "Nutritional Breakdown",
+            },
+            legend: {
+              display: true,
+              position: "right",
+            },
           },
         },
-      },
-    });
+      }) as Chart;
 
-    // Cleanup the chart when component is unmounted
-    return () => chart.destroy();
-  }, [dish]);
+      // Cleanup the chart when component is unmounted
+      return () => {
+        if (chartRef.current) {
+          chartRef.current.destroy();
+        }
+      };
+    }, [data, dishNumber]);
+
+    return <canvas id={`chart-${dishNumber}`} key={data.join("-")}></canvas>;
+  }
 
   const preparationSteps = dish.preparation.split(/\n/).filter(Boolean);
 
@@ -327,12 +339,12 @@ function DishCard({ dish, delay }: DishCardProps) {
       <h3>Estimated Calories:</h3>
       <p>{dish.calories}</p>
       <div>
-        <canvas
-          id={`chart-${dish.number}`}
-          key={dish.normalizedValues?.join("-")}
-          // width="150"
-          // height="150"
-        ></canvas>
+        {dish.normalizedValues && (
+          <NutritionChart
+            data={dish.normalizedValues}
+            dishNumber={dish.number}
+          />
+        )}
       </div>
     </div>
   );
